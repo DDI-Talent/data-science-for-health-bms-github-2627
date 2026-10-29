@@ -1,0 +1,176 @@
+---
+title: "Week 02 - tidyr"
+output: html_document
+---
+
+## Introduction
+
+```{r load-data}
+#install.packages("ds4psy")
+library(tidyverse)
+#the line below loads the posPsy_wide dataset without needing to load the entire ds4psy package
+posPsy_wide <- ds4psy::posPsy_wide 
+```
+
+This dataset contains the results of a psychological intervention study. Each participant was seen 6 times, and each time they responded to two questionnaires: the Authentic Happiness Inventory (AHI) and the Center for Epidemiological Studies Depression scale (CES-D).
+
+Column names starting with `ahi` and `cesd` contain people's scores on each item, on each occasion. For example, `cesd04.0` refers to the score on the 4th item of the CES-D questionnaire, at occasion 0 (i.e. at baseline).
+
+For additional information about this dataset (including a codebook), see: <https://bookdown.org/hneth/ds4psy/B.1-datasets-pos.html>
+
+## Exercise 1
+
+How many questions (items) were in the the Authentic Happiness Inventory (AHI), and how many in the Centre for Epidemiological Studies Depression scale (CES-D)? Try to find the answer without looking at the codebook or scrolling through the dataset, but you can check the variable names.
+
+```{r item-numbers}
+# You can use `glimpse` as a quick and dirty way of checking the column names:
+glimpse(posPsy_wide)
+
+# The approach below is more involved, but will give you the exact number of items in a tidy format:
+
+# Authentic Happiness Inventory (AHI)
+posPsy_wide |>
+  select(starts_with("ahi")) |>
+  select(contains(".0")) |>
+  select(-contains("Total")) |>
+  summarise(n_ahi = ncol(pick(everything())))
+
+# (CES-D)
+posPsy_wide |>
+  select(starts_with("ces")) |>
+  select(contains(".0")) |>
+  select(-contains("Total")) |>
+  summarise(n_ces = ncol(pick(everything())))
+```
+
+## Exercise 2
+
+Create a subset of the data with only the following columns: id, intervention, and the totals of each participant's scores on the CES-D at each occasion. Save this into a new object called `cesd_totals`.
+
+HINT: You could call each of the columns separately. But, to save typing, you can also use the `starts_with` helper to select multiple columns. Check out the documentation for `select()` to learn more about this approach.
+
+```{r cesd-totals}
+cesd_totals <- posPsy_wide |>
+  select(id, intervention, starts_with("cesdTotal"))
+
+cesd_totals
+```
+
+## Exercise 3
+
+We want to check whether the way that CES-D score changed over time was dependent on the specific intervention that the participants got. There were 4 different intervention groups, and they are indicated in the `intervention` column.
+
+Let's start by creating a summary table - each column should show the average CES-D score at a given occasion, and each row should be a different intervention group.
+
+Draw the table on paper first, and then discuss how you would go creating it in R. Finally, create the table, using the newly created `cesd_totals` dataset.
+
+```{r cesd-means}
+table_of_average_cesd <- cesd_totals |>  
+  group_by(intervention) |>
+  summarise(
+    mean_cesd_0 = mean(cesdTotal.0, na.rm = TRUE),
+    mean_cesd_1 = mean(cesdTotal.1, na.rm = TRUE),
+    mean_cesd_2 = mean(cesdTotal.2, na.rm = TRUE),
+    mean_cesd_3 = mean(cesdTotal.3, na.rm = TRUE),
+    mean_cesd_4 = mean(cesdTotal.4, na.rm = TRUE),
+    mean_cesd_5 = mean(cesdTotal.5, na.rm = TRUE)
+  )
+  
+table_of_average_cesd
+```
+
+## Exercise 4
+
+Now, try to create a graph based on your table. We would like to see a line graph showing the change in CES-D scores over time, with each intervention group drawn in a different colour.
+
+NOTE: This exercise is tricky and you'll likely get stuck. If you do, move on to Exercise 5.
+
+```{r graph-first-attemps}
+
+# See exercise 5 :)
+```
+
+## Exercise 5
+
+To make the required graph, you'll need the data to be in a different format - referred to as the "long format". We want to see 3 only columns: `occasion`, `intervention` and `mean_cesd`. You'll need to pivot your data into this format. If you're struggling to code it, draw the tables on paper first - what are the changes that need to happen? Call your table `cesd_means_long`.
+
+```{r pivot-to-long}
+cesd_means_long <- 
+table_of_average_cesd |> 
+  pivot_longer(cols = mean_cesd_0:mean_cesd_5,
+               names_to = "ocassion",
+               values_to = "mean_cesd",
+# the next line is optional, but it will remove the "mean_cesd_" string and leave you with just the number associated with the occasion
+               names_prefix = "mean_cesd_") 
+
+cesd_means_long
+
+```
+
+## Exercise 6
+
+Now that your data are in a suitable format, create the graph described in Exercise 4.
+
+```{r graph-second-attempt}
+cesd_means_long |>
+  mutate(intervention = as.character(intervention)) |>
+  ggplot(aes(x = ocassion, y = mean_cesd, group = intervention)) +
+  geom_line(aes(colour = intervention)) +
+  theme_minimal()
+```
+
+NOTE: The intervention variable was initially numeric, which is why the 4 intervention lines were plotted in different shades of one colour. Before creating the plot, we changed the variable type to character, and this fixed the problem.
+
+## Exercise 7
+
+Just to practice pivoting again, try turning `cesd_means_long` back into the wide format.
+
+Can you get the column names to be more informative than just numbers? Look at the documentation of `pivot_wider()` to help you.
+
+```{r pivot-to-wide}
+cesd_means_wide <- cesd_means_long |>
+  pivot_wider(
+    names_from = occasion,
+    values_from = mean_cesd,
+    names_prefix = "cesdTotal.")
+  
+cesd_means_wide
+```
+
+########################################################################################
+```{r}
+posPsy_wide <- ds4psy::posPsy_wide 
+```
+
+Create a subset of the data with only the following columns: id, intervention, and the totals of each participant's scores on the CES-D at each occasion. Save this into a new object called `cesd_totals`.
+
+```{r}
+cesd_totals <- posPsy_wide |>
+  select(id, intervention, starts_with("cesdTotal"))
+```
+
+We want to check whether the way that CES-D score changed over time was dependent on the specific intervention that the participants got. There were 4 different intervention groups, and they are indicated in the `intervention` column.
+
+Let's start by creating a summary table - each column should show the average CES-D score at a given occasion, and each row should be a different intervention group.
+```{r}
+cesd_totals |>  
+  group_by(intervention) |>
+  summarise(
+    mean_cesd_0 = mean(cesdTotal.0, na.rm = TRUE),
+    mean_cesd_1 = mean(cesdTotal.1, na.rm = TRUE),
+    mean_cesd_2 = mean(cesdTotal.2, na.rm = TRUE),
+    mean_cesd_3 = mean(cesdTotal.3, na.rm = TRUE),
+    mean_cesd_4 = mean(cesdTotal.4, na.rm = TRUE),
+    mean_cesd_5 = mean(cesdTotal.5, na.rm = TRUE)
+  ) |>
+  pivot_longer(cols = mean_cesd_0:mean_cesd_5,
+               names_to = "occasion",
+               values_to = "mean_cesd",
+# the next line is optional, but it will remove the "mean_cesd_" string and leave you with just the number associated with the occasion
+               names_prefix = "mean_cesd_") |>
+  mutate(intervention = as.character(intervention)) |>
+  ggplot(aes(x = occasion, y = mean_cesd, group = intervention)) +
+  geom_line(aes(colour = intervention)) +
+  theme_minimal()
+```
+
